@@ -1,0 +1,8 @@
+# Per-dino design previews (dev artifacts, not part of the game)
+*-preview.html
+
+# Claude Code local settings
+.claude/
+
+# macOS metadata
+.DS_Store

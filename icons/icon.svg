@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background: solid game-green. Don't round corners — the OS handles that for adaptive icons. -->
+  <defs>
+    <radialGradient id="bg-glow" cx="0.5" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#3d6a51" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#1f3b2d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="#2e5540"/>
+  <rect width="512" height="512" fill="url(#bg-glow)"/>
+
+  <!-- Stylised Titan in signature gold. Source bbox ~ (-23..76, -4..70). Center at (27, 33). Scale 4.1 fits ~80% safe zone. -->
+  <g transform="translate(256 256) scale(4.1) translate(-27 -33)">
+
+    <!-- Far legs (behind body) — far hind shifted forward 2u -->
+    <path fill="#c89820" stroke="#2a2008" stroke-width="1.0" stroke-linejoin="round"
+          d="M 18 49 C 18 56 19 62 20 67 L 26 67 C 27 62 28 56 28 49"/>
+    <path fill="#c89820" stroke="#2a2008" stroke-width="1.0" stroke-linejoin="round"
+          d="M 46 49 C 46 56 47 62 48 67 L 54 67 C 55 62 56 56 56 49"/>
+    <!-- Far foot pads -->
+    <ellipse fill="#a07810" stroke="#2a2008" stroke-width="0.5" cx="23" cy="67" rx="4" ry="1.0"/>
+    <ellipse fill="#a07810" stroke="#2a2008" stroke-width="0.5" cx="51" cy="67" rx="4" ry="1.0"/>
+    <!-- Far foot claws -->
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.5" stroke-linejoin="round" d="M 20 67.5 L 20.5 70 L 21 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.5" stroke-linejoin="round" d="M 22.5 67.5 L 23 70 L 23.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.5" stroke-linejoin="round" d="M 25 67.5 L 25.5 70 L 26 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.5" stroke-linejoin="round" d="M 48 67.5 L 48.5 70 L 49 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.5" stroke-linejoin="round" d="M 50.5 67.5 L 51 70 L 51.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.5" stroke-linejoin="round" d="M 53 67.5 L 53.5 70 L 54 67.5 Z"/>
+
+    <!-- Long sweeping tail, thick base tapering to a fine tip. Base open (no Z) for seamless body merge. -->
+    <path fill="#f2c14e" stroke="#2a2008" stroke-width="1.0" stroke-linejoin="round"
+          d="M 8 41 C 2 43 -6 46 -14 49 C -19 51 -22 52 -23 53 L -23 54 C -19 55 -13 54 -7 53 C -1 52 4 51 8 50"/>
+
+    <!-- Long neck — wider base at shoulder, tapering up to head -->
+    <path fill="#f2c14e" stroke="#2a2008" stroke-width="1.2" stroke-linejoin="round"
+          d="M 48 40 C 51 30 56 18 62 10 C 64 6 66 5 67 5 L 70 7 L 70 8 C 68 10 66 14 64 18 C 63 26 62 34 62 40 L 62 42 L 48 42 Z"/>
+
+    <!-- Main body — barrel torso compressed ~10% vertically -->
+    <path fill="#f2c14e" stroke="#2a2008" stroke-width="1.4" stroke-linejoin="round"
+          d="M 4 42 C 4 37 8 30 14 26 C 20 23 28 22 36 22 C 44 22 52 23 58 26 C 62 28 65 31 65 35 C 65 40 64 44 62 48 C 60 51 56 53 50 53 C 38 54 24 54 14 53 C 8 52 4 48 4 42 Z"/>
+
+    <!-- Belly band -->
+    <path fill="#fff4d6" opacity="0.5"
+          d="M 18 49 C 28 48 40 48 48 49 L 50 50 L 50 51 L 18 51 Z"/>
+
+    <!-- Head -->
+    <path fill="#f2c14e" stroke="#2a2008" stroke-width="1.0" stroke-linejoin="round"
+          d="M 60 6 C 64 4 68 4 72 6 C 74 7 75 8 76 9 L 76 10 L 75 11 L 72 11 C 68 10 64 9 60 8 Z"/>
+
+    <!-- Eye -->
+    <circle fill="#2a2008" cx="70" cy="8" r="1.2"/>
+
+    <!-- Crown (cream, for contrast against gold body) — sits cleanly on head -->
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.8" stroke-linejoin="round"
+          d="M 64 6 L 64 2 L 66 -2 L 67 2 L 68 -4 L 69 2 L 70 -2 L 72 2 L 72 6 Z"/>
+    <!-- Crown jewels on spike tips -->
+    <circle fill="#b03828" stroke="#2a2008" stroke-width="0.3" cx="66" cy="-1.5" r="0.8"/>
+    <circle fill="#b03828" stroke="#2a2008" stroke-width="0.4" cx="68" cy="-3.5" r="0.9"/>
+    <circle fill="#b03828" stroke="#2a2008" stroke-width="0.3" cx="70" cy="-1.5" r="0.8"/>
+
+    <!-- Near legs (in front of body) -->
+    <path fill="#f2c14e" stroke="#2a2008" stroke-width="1.0" stroke-linejoin="round"
+          d="M 12 49 C 12 56 13 62 14 67 L 20 67 C 21 62 22 56 22 49"/>
+    <path fill="#f2c14e" stroke="#2a2008" stroke-width="1.0" stroke-linejoin="round"
+          d="M 40 49 C 40 56 41 62 42 67 L 50 67 C 51 62 52 56 52 49"/>
+    <!-- Near foot pads -->
+    <ellipse fill="#c89820" stroke="#2a2008" stroke-width="0.6" cx="17" cy="67" rx="4.5" ry="1.0"/>
+    <ellipse fill="#c89820" stroke="#2a2008" stroke-width="0.6" cx="46" cy="67" rx="5.5" ry="1.0"/>
+    <!-- Near foot claws -->
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.6" stroke-linejoin="round" d="M 13.5 67.5 L 14 70 L 14.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.6" stroke-linejoin="round" d="M 16.5 67.5 L 17 70 L 17.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.6" stroke-linejoin="round" d="M 19.5 67.5 L 20 70 L 20.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.6" stroke-linejoin="round" d="M 41.5 67.5 L 42 70 L 42.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.6" stroke-linejoin="round" d="M 45.5 67.5 L 46 70 L 46.5 67.5 Z"/>
+    <path fill="#fff4d6" stroke="#2a2008" stroke-width="0.6" stroke-linejoin="round" d="M 49.5 67.5 L 50 70 L 50.5 67.5 Z"/>
+  </g>
+</svg>

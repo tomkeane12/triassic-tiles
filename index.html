@@ -1,0 +1,1870 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1f3b2d" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Triassic Tiles" />
+<meta name="description" content="Merge dinosaurs from egg to titan in this 2048-inspired puzzle game." />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+<title>Triassic Tiles</title>
+<style>
+  :root {
+    --bg: #1f3b2d;
+    --bg-2: #142319;
+    --board: #2e5540;
+    --cell: #3d6a51;
+    --text: #f3efe0;
+    --text-dim: #c9c2a6;
+    --accent: #f2c14e;
+    --danger: #d0554b;
+    --gap: 10px;
+    --radius: 10px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: radial-gradient(ellipse at top, var(--bg) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: calc(var(--safe-top) + 10px) 12px calc(var(--safe-bottom) + 10px);
+    max-width: 520px;
+    margin: 0 auto;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .title {
+    font-size: clamp(20px, 6vw, 28px);
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scores { display: flex; gap: 8px; }
+  .score {
+    background: var(--board);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    text-align: center;
+    min-width: 64px;
+  }
+  .score .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .score .value {
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .score.pulse-best { animation: pulseBest 0.7s ease-out; }
+  @keyframes pulseBest {
+    0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(242,193,78,0.7); }
+    50%  { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(242,193,78,0); }
+    100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(242,193,78,0); }
+  }
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex: 1;
+    min-width: 0;
+  }
+  button.btn {
+    background: var(--accent);
+    color: #2a2008;
+    border: 0;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+  }
+  button.btn:active { transform: translateY(1px); box-shadow: none; }
+  button.btn-icon { padding: 8px 10px; font-size: 16px; line-height: 1; }
+
+  .board-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+  }
+  .board {
+    position: relative;
+    background: var(--board);
+    border-radius: calc(var(--radius) + 4px);
+    padding: var(--gap);
+    width: min(92vw, 480px, calc(100vh - 200px));
+    aspect-ratio: 1 / 1;
+    touch-action: none;
+  }
+  .grid-bg, .tiles {
+    position: absolute;
+    inset: var(--gap);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: var(--gap);
+  }
+  .cell {
+    background: var(--cell);
+    border-radius: var(--radius);
+  }
+  .tiles { pointer-events: none; }
+  .tile {
+    position: absolute;
+    pointer-events: auto;
+    cursor: pointer;
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.18), inset 0 -3px 0 rgba(0,0,0,0.12);
+    transition: transform 120ms ease-out;
+    overflow: hidden;
+    text-align: center;
+    line-height: 1;
+    will-change: transform;
+  }
+  .tile .ico {
+    width: 84%;
+    height: 70%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1%;
+  }
+  .tile .ico svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    shape-rendering: geometricPrecision;
+    text-rendering: geometricPrecision;
+    image-rendering: -webkit-optimize-contrast;
+  }
+  .tile .name {
+    font-size: 13%;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 4%;
+    opacity: 0.92;
+  }
+  .tile.pop { animation: pop 160ms ease-out; }
+  .tile.merge { animation: merge 200ms ease-out; }
+  @keyframes pop {
+    0% { transform: scale(0) translate3d(var(--tx),var(--ty),0); }
+    100% { transform: scale(1) translate3d(var(--tx),var(--ty),0); }
+  }
+  @keyframes merge {
+    0% { transform: scale(1) translate3d(var(--tx),var(--ty),0); }
+    50% { transform: scale(1.16) translate3d(var(--tx),var(--ty),0); }
+    100% { transform: scale(1) translate3d(var(--tx),var(--ty),0); }
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 20, 14, 0.82);
+    border-radius: calc(var(--radius) + 4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 10;
+    padding: 20px;
+    text-align: center;
+    backdrop-filter: blur(3px);
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 {
+    margin: 0;
+    font-size: clamp(22px, 7vw, 32px);
+  }
+  .overlay p { margin: 0; color: var(--text-dim); font-size: 14px; }
+
+  footer {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    min-height: 50px;
+  }
+  .next-label { font-weight: 600; }
+  .next-thumb {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 3px 6px;
+    gap: 1px;
+    width: 38px;
+    height: 44px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .next-thumb svg { width: 28px; height: 20px; display: block; overflow: visible; }
+  .next-name {
+    font-size: 7px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    line-height: 1;
+  }
+
+  /* ── Enhanced overlay ── */
+  .overlay-icon { font-size: clamp(36px, 12vw, 54px); line-height: 1; }
+  .overlay-score {
+    font-size: clamp(26px, 8vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .new-best {
+    background: var(--accent);
+    color: #2a2008;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* ── Milestone toast ── */
+  .toast {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(calc(-100% - 80px));
+    padding: 9px 20px;
+    border-radius: 24px;
+    font-weight: 800;
+    font-size: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    z-index: 500;
+    transition: transform 0.32s ease-out;
+    white-space: nowrap;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .toast svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .dex-title svg { width: 20px; height: 20px; vertical-align: -3px; margin-right: 4px; }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* ── Dino Dex panel ── */
+  .dex-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 14, 0.96);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    overflow-y: auto;
+    backdrop-filter: blur(4px);
+  }
+  .dex-panel.hidden { display: none; }
+  .dex-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 14px;
+  }
+  .dex-title {
+    font-size: 20px;
+    font-weight: 800;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .dex-count { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  .dex-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 480px;
+  }
+  .dex-card {
+    border-radius: var(--radius);
+    padding: 8px 6px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    aspect-ratio: 1 / 1.05;
+    background: var(--board);
+    transition: opacity 0.2s;
+  }
+  .dex-card.unseen { opacity: 0.22; filter: grayscale(1); }
+  .dex-ico { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+  .dex-ico svg { width: 90%; height: 90%; }
+  .dex-name {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text);
+  }
+  .dex-card.unseen .dex-name { visibility: hidden; }
+
+  /* ── Fact tooltip ── */
+  #fact-tooltip {
+    position: fixed;
+    background: rgba(12, 24, 16, 0.96);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    max-width: 260px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    z-index: 450;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    line-height: 1.5;
+  }
+  #fact-tooltip.hidden { display: none; }
+  .tt-name {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    margin-bottom: 5px;
+  }
+  .tt-fact { font-size: 12px; color: var(--text-dim); }
+  .tt-hint { font-size: 10px; color: var(--text-dim); opacity: 0.55; margin-top: 6px; text-align: right; }
+
+  /* ── How to play panel ── */
+  .htp-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 14, 0.88);
+    z-index: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .htp-panel.hidden { display: none; }
+  .htp-box {
+    background: var(--board);
+    border-radius: calc(var(--radius) + 6px);
+    padding: 26px 22px 22px;
+    max-width: 340px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  .htp-box h2 { margin: 0 0 20px; font-size: clamp(18px, 5vw, 22px); letter-spacing: 0.3px; }
+  .htp-steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; text-align: left; }
+  .htp-step { display: flex; align-items: center; gap: 14px; }
+  .htp-step-icon {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    background: var(--cell);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .htp-step p { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.45; }
+  .htp-step p strong { color: var(--text); font-weight: 700; }
+  .htp-merge-demo { display: flex; align-items: center; gap: 3px; }
+  .htp-mini-tile { width: 14px; height: 14px; border-radius: 3px; }
+  .htp-plus, .htp-arrow { font-size: 10px; color: var(--text-dim); font-weight: 700; }
+</style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="title"><span>Triassic Tiles</span></div>
+      <div class="scores">
+        <div class="score"><div class="label">Score</div><div class="value" id="score">0</div></div>
+        <div class="score"><div class="label">Best</div><div class="value" id="best">0</div></div>
+        <button class="btn btn-icon" id="mute-btn" title="Toggle sound" aria-label="Toggle sound"><svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M3 7v6h3.5L11 16V4L6.5 7H3z"/><path d="M13.5 7a3.5 3.5 0 010 6" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M16 5a7 7 0 010 10" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></button>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="hint">Swipe to merge. Match two to evolve.</div>
+      <button class="btn" id="dex-btn" aria-label="Open Dino Dex">Dex</button>
+      <button class="btn" id="new-game" aria-label="Start new game">New</button>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board">
+        <div class="grid-bg" id="grid-bg"></div>
+        <div class="tiles" id="tiles"></div>
+        <div class="overlay hidden" id="overlay">
+          <div class="overlay-icon" id="overlay-icon"></div>
+          <h2 id="overlay-title">Extinction!</h2>
+          <p id="overlay-sub">No moves left.</p>
+          <div class="overlay-score" id="overlay-score"></div>
+          <div class="new-best hidden" id="overlay-new-best">🏆 New Best!</div>
+          <button class="btn" id="overlay-btn">Play again</button>
+        </div>
+      </div>
+    </div>
+
+    <footer id="next-evo">Next: —</footer>
+  </div>
+
+  <!-- Milestone toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Dino Dex panel -->
+  <div class="dex-panel hidden" id="dex-panel"></div>
+
+  <!-- Fact tooltip -->
+  <div id="fact-tooltip" class="hidden">
+    <div class="tt-name"></div>
+    <div class="tt-fact"></div>
+    <div class="tt-hint"></div>
+  </div>
+
+  <!-- How to play overlay -->
+  <div class="htp-panel hidden" id="htp-panel">
+    <div class="htp-box">
+      <h2>How to Play</h2>
+      <div class="htp-steps">
+        <div class="htp-step">
+          <div class="htp-step-icon">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>
+              <polyline points="9,6 12,3 15,6"/><polyline points="9,18 12,21 15,18"/>
+              <polyline points="6,9 3,12 6,15"/><polyline points="18,9 21,12 18,15"/>
+            </svg>
+          </div>
+          <p><strong>Swipe</strong> (or use arrow keys) to slide all tiles in one direction.</p>
+        </div>
+        <div class="htp-step">
+          <div class="htp-step-icon">
+            <div class="htp-merge-demo">
+              <div class="htp-mini-tile" style="background:#c6e0a6"></div>
+              <div class="htp-plus">+</div>
+              <div class="htp-mini-tile" style="background:#c6e0a6"></div>
+              <div class="htp-arrow">&#8594;</div>
+              <div class="htp-mini-tile" style="background:#6ea857"></div>
+            </div>
+          </div>
+          <p><strong>Match two identical dinos</strong> and they evolve into the next species!</p>
+        </div>
+        <div class="htp-step">
+          <div class="htp-step-icon">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--accent)" stroke="rgba(0,0,0,0.25)" stroke-width="0.5" stroke-linejoin="round">
+              <path d="M2 18h20l2.5-11-6.5 5L12 3 6 12 -0.5 7z"/>
+            </svg>
+          </div>
+          <p>Evolve from <strong>Egg to Titan</strong> — the mightiest creature to ever walk the Earth!</p>
+        </div>
+      </div>
+      <button class="btn" id="htp-close">Let's go!</button>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  const SIZE = 4;
+  const STORAGE = "triassicTiles.v1";
+  const DEX_STORAGE = "triassicTiles.dex";
+  const HTP_STORAGE = "triassicTiles.htp";
+  // Cache --gap once — it's a fixed design value, no need to re-read it for every tile/move
+  const GAP = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 10;
+
+  // SVG icons for mute button (avoids emoji rendering inconsistencies)
+  const SVG_SPEAKER = `<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M3 7v6h3.5L11 16V4L6.5 7H3z"/><path d="M13.5 7a3.5 3.5 0 010 6" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M16 5a7 7 0 010 10" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`;
+  const SVG_MUTED   = `<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M3 7v6h3.5L11 16V4L6.5 7H3z"/><path d="M13 8l4 4M17 8l-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`;
+  // Sparkle icon for the milestone toast
+  const SVG_SPARKLE = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1l1.5 4.3 4.5.3-3.5 3 1 4.4L8 10.5 4.5 13l1-4.4-3.5-3 4.5-.3z"/></svg>`;
+  // Egg icon for the Dex header
+  const SVG_DEX_EGG = `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="9" rx="4.5" ry="6" fill="currentColor"/><circle cx="6" cy="7.5" r="0.7" fill="rgba(0,0,0,0.35)"/><circle cx="9.5" cy="9" r="0.55" fill="rgba(0,0,0,0.35)"/><circle cx="7.5" cy="11.5" r="0.6" fill="rgba(0,0,0,0.35)"/></svg>`;
+
+  // Evolution tiers, ordered by real-world size (small → large).
+  // Each SVG is a side-profile silhouette facing right, drawn in a 100x70 viewBox
+  // with ground near y=62. fill inherits from currentColor via CSS.
+  const SVG = {
+    // Egg — vibrant pastel turquoise with multi-color speckles
+    egg: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <ellipse style="fill:#000000;opacity:0.1" cx="50" cy="63" rx="22" ry="2.5"/>
+      <path style="fill:#7fd3c4;stroke:#3a8a7e;stroke-width:1.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 50 4
+               C 57 4 63 6 67 11
+               C 71 16 74 22 75 28
+               C 76 32 76 36 76 40
+               C 76 46 75 51 72 55
+               C 68 60 63 63 57 64
+               C 53 64.5 49 64.5 45 64
+               C 39 63 34 60 30 55
+               C 27 51 25 46 24 40
+               C 24 36 24 32 25 28
+               C 26 22 29 16 33 11
+               C 37 6 43 4 50 4 Z"/>
+      <path style="fill:#a8e8dc;opacity:0.7" d="M 38 14
+               C 35 18 33 23 32 29
+               C 31 35 32 41 35 45
+               C 33 39 33 32 34 26
+               C 35 21 36 17 38 14 Z"/>
+      <path style="fill:#ffffff;opacity:0.55" d="M 36 16
+               C 34 19 33 22 33 26
+               C 33 28 34 30 35 31
+               C 34 28 34 24 35 21
+               C 35 19 36 17 36 16 Z"/>
+      <ellipse style="fill:#e2664f" cx="38" cy="38" rx="2.6" ry="1.7"/>
+      <ellipse style="fill:#f2c14e" cx="56" cy="28" rx="2.6" ry="1.7"/>
+      <ellipse style="fill:#8a3d8e" cx="62" cy="46" rx="2.6" ry="1.7"/>
+      <ellipse style="fill:#2d6f7a" cx="46" cy="52" rx="2.2" ry="1.5"/>
+      <ellipse style="fill:#e2664f" cx="42" cy="44" rx="1.6" ry="1.2"/>
+      <ellipse style="fill:#f2c14e" cx="58" cy="38" rx="1.6" ry="1.2"/>
+      <ellipse style="fill:#8a3d8e" cx="50" cy="20" rx="1.4" ry="1.0"/>
+      <ellipse style="fill:#2d6f7a" cx="36" cy="30" rx="1.4" ry="1.0"/>
+      <ellipse style="fill:#f2c14e" cx="64" cy="20" rx="1.3" ry="0.9"/>
+      <ellipse style="fill:#e2664f" cx="34" cy="46" rx="1.3" ry="0.9"/>
+      <ellipse style="fill:#2d6f7a" cx="60" cy="56" rx="1.2" ry="0.9"/>
+      <ellipse style="fill:#8a3d8e" cx="44" cy="28" rx="1.2" ry="0.9"/>
+      <path style="fill:none;stroke:#1a4540;stroke-width:0.9;opacity:0.55;stroke-linecap:round" d="M 42 16 C 44 19 46 22 44 24 C 42 26 46 28 48 26 C 46 30 44 32 46 34 C 48 36 46 38 48 40"/>
+    </svg>`,
+
+    // Compsognathus — multi-color: mid-green body, cream belly, darker far leg, dark outline
+    compy: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <path style="fill:#5a8a3e;stroke:#1e3210;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 32
+               C 8 31 12 30 16 30.5
+               C 22 30 28 29 34 27.5
+               C 39 27 44 27 48 27
+               C 51 27 54 26 56 24.5
+               C 58 22.5 60 21 62 20
+               C 64 18.5 66 18 68 18
+               C 71 18 74 19 77 20
+               C 80 21 83 21.5 85 23
+               C 86 24 87 25 88 26
+               L 89 27
+               L 89 28
+               L 88 28
+               C 86 28 83 28.5 80 28.5
+               C 77 28.5 74 29.5 71 30
+               C 68 30.5 65 31.5 63 33
+               C 60 34.5 58 36.5 56 38
+               C 54 40 52 41.5 50 43.5
+               C 47 44 43 44 39 43
+               C 33 41 27 40 21 37.5
+               C 14 35.5 8 33.5 4 33 Z"/>
+      <path style="fill:#f0d99a" d="M 20 33.5
+                                     C 28 33 38 33 50 33
+                                     C 53 33 55 33.5 56 35
+                                     C 54 36.5 52 38 50 39.5
+                                     C 48 41 45 42 42 42
+                                     C 38 42 34 41.5 30 40
+                                     C 26 38.5 22 36.5 20 35 Z"/>
+      <path style="fill:#3d6128;stroke:#1e3210;stroke-width:1;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 44 44
+               C 44 48 44 52 43 56
+               C 43 58 44 60 46 62
+               L 52 62
+               C 52 60 52 57 52 53
+               C 52 49 51 47 49 44 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48.3 62 L 48.8 64 L 49.3 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 50 62 L 50.5 64 L 51 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 51 62 L 51.5 64 L 52 62 Z"/>
+      <path style="fill:#5a8a3e;stroke:#1e3210;stroke-width:1;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 58 36.5
+               C 59 35.5 60 34.5 62 33.5
+               L 62 41
+               C 61 42.5 59 42.5 58 41 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 57.7 41.5 L 58.2 43.5 L 58.7 41.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 59.5 42 L 60 44 L 60.5 42 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 61.3 41.5 L 61.8 43.5 L 62.3 41.5 Z"/>
+      <path style="fill:#5a8a3e;stroke:#1e3210;stroke-width:1;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40 44
+               C 40 48 40 52 39 56
+               C 39 58 40 60 42 62
+               L 48 62
+               C 48 60 48 57 48 53
+               C 48 49 47 47 45 44 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 41.5 62 L 42 64 L 42.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 44.5 62 L 45 64 L 45.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#1e3210;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 47 62 L 47.5 64 L 48 62 Z"/>
+      <circle style="fill:#1e3210" cx="79" cy="22" r="1.7"/>
+      <path style="fill:none;stroke:#1e3210;stroke-width:1.2;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 79 27 C 82 27 85 27.5 88 28"/>
+    </svg>`,
+
+    // Velociraptor — multi-color forest green, outlined, cream sickle claw, rust feather crest
+    raptor: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <path style="fill:#2f4f28;stroke:#0a1f08;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 31
+               C 8 30 12 29 16 28
+               C 21 27 26 25 31 24
+               C 36 23 40 22 44 21
+               C 47 20 50 19 53 19
+               C 56 19 58 19 60 21
+               C 62 22 63 22 65 21
+               C 67 20 69 19 71 17
+               C 74 15 77 13 80 13
+               C 83 13 86 13 88 14
+               C 91 15 93 17 94 19
+               C 96 21 97 24 97 26
+               C 97 27 98 27 98 28
+               L 97 28.5
+               C 96 29 94 29 92 29
+               C 89 29.5 86 30 83 30
+               C 79 30 75 30.5 71 31
+               C 68 32 65 33 63 35
+               C 61 37 60 39 58 41
+               C 56 44 54 46 52 48
+               C 50 49 48 50 46 50
+               C 44 49 42 49 40 47
+               C 38 46 36 44 34 42
+               C 31 40 27 39 23 37
+               C 17 35 11 34 4 33 Z"/>
+      <path style="fill:#f0d99a" d="M 28 33
+               C 34 31 42 30 48 30
+               C 53 30 56 30.5 58 31
+               C 56 35 54 39 52 43
+               C 50 46 48 47 46 47.5
+               C 44 47.5 42 47 40 45.5
+               C 37 43.5 34 41 31 37
+               C 29 35 28 33.5 28 33 Z"/>
+      <path style="fill:#1f3a1a;stroke:#0a1f08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 47
+               C 42 50 41 54 40 58
+               C 40 60 40 61 41 62
+               L 47 62
+               C 48 60 48 57 48 54
+               C 48 51 48 49 47 47 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 41 62 L 41.5 64 L 42 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 43 62 L 43.5 64 L 44 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 45 62 L 45.5 64 L 46 62 Z"/>
+      <path style="fill:#2f4f28;stroke:#0a1f08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 58 41
+               C 60 39 62 37 65 35
+               L 74 35
+               C 76 35 76 39 74 39
+               L 67 39
+               C 64 40 61 41 58 43 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 76 37 L 76 34 C 76 32 80 31 81 34 C 81 32 78 32 78 34 L 78 37 Z"/>
+      <path style="fill:#2f4f28;stroke:#0a1f08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 47
+               C 46 50 45 54 44 58
+               C 44 60 44 61 45 62
+               L 52 62
+               C 53 60 54 57 54 54
+               C 54 51 54 49 53 47 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 62 L 46.5 64 L 47 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 62 L 48.5 64 L 49 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 50 62 L 50.5 64 L 51 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 53 62 L 53 55 C 53 52 60 49 62 56 C 62 53 57 53 56 55 L 56 62 Z"/>
+      <path style="fill:#c47a3c;stroke:#0a1f08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 74 15
+               C 72 11 73 7 76 5
+               C 80 4 84 5 86 8
+               C 87 11 87 13 85 14
+               C 81 13 77 14 74 15 Z"/>
+      <path style="fill:#0a1f08" d="M 80 28
+               C 85 27 90 27 94 27.5
+               C 96 28 96 30.5 94 30.5
+               C 90 31 85 31 80 30.5 Z"/>
+      <path style="fill:#2f4f28;stroke:#0a1f08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 80 30
+               C 84 30.5 90 31 95 30.5
+               L 97 30.5
+               L 96 32
+               C 90 32.5 84 32 80 31.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 83 29 L 84 31 L 85 29 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 86 29 L 87 31 L 88 29 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 89 29 L 90 31 L 91 29 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 92 29 L 93 31 L 94 29 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 84.5 32 L 85.5 30 L 86.5 32 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 87.5 32 L 88.5 30 L 89.5 32 Z"/>
+      <path style="fill:#f5e8b8;stroke:#0a1f08;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 90.5 32 L 91.5 30 L 92.5 32 Z"/>
+      <circle style="fill:#0a1f08" cx="84" cy="17" r="1.5"/>
+    </svg>`,
+
+    // Gallimimus — multi-color rust-orange, outlined, torso +10%, neck +10%
+    gallim: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <path style="fill:#b85a2c;stroke:#3d1c08;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 34
+               C 9 33 14 32 19 31
+               C 24 31 30 30 36 29
+               C 41 27.5 45 25.5 49 23.5
+               C 52 22.5 55 21.5 57 22.5
+               C 59 23.5 60 25.5 60 28.5
+               C 58 30.5 55 31.5 51 31.5
+               C 46 32.5 40 32.5 34 32
+               C 28 32 22 33 16 33
+               C 11 34 7 34 4 36 Z"/>
+      <path style="fill:#f0d99a" d="M 34 30
+               C 38 29 42 28 48 27
+               C 52 26.5 55 26.5 56 27
+               C 55 28 54 28.7 52 29
+               C 50 29.5 48 30 46 30
+               C 42 30.7 38 31 34 30.5 Z"/>
+      <path style="fill:#b85a2c;stroke:#3d1c08;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 56 22
+               C 60 18 64 14 68 11
+               C 70 9 73 8 75 8
+               L 77 9
+               C 78 9 78 10 78 11
+               C 76 11.5 73 11.5 70 12.5
+               C 67 13.5 64 16.5 62 19.5
+               C 61 22.5 60 25.5 60 28.5
+               C 59 25.5 58 22.5 56 22 Z"/>
+      <path style="fill:#b85a2c;stroke:#3d1c08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 72 4
+               C 75 3 78 4 81 5
+               C 83 6 85 7 87 8
+               C 88 9 89 10 89 11
+               L 88 12
+               C 86 12 83 12 80 11
+               C 77 11 74 9 72 7
+               C 71 6 71 5 72 4 Z"/>
+      <path style="fill:#7a3818;stroke:#3d1c08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 31
+               C 46 35 45 39 44 43
+               C 43 47 43 51 42 55
+               C 42 58 43 60 44 62
+               L 52 62
+               C 53 60 54 58 54 55
+               C 54 51 53 47 52 43
+               C 52 39 52 35 51 31 Z"/>
+      <path style="fill:#f5e8b8;stroke:#3d1c08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 62 L 48.5 64 L 49 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#3d1c08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 49.5 62 L 50 64 L 50.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#3d1c08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 51 62 L 51.5 64 L 52 62 Z"/>
+      <path style="fill:#b85a2c;stroke:#3d1c08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 58 30
+               C 58.5 29.5 59.5 29 60 28.5
+               L 70 28.5
+               C 73 28.5 73 32 70 32
+               L 58 32 Z"/>
+      <path style="fill:#b85a2c;stroke:#3d1c08;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 31
+               C 42 35 41 39 40 43
+               C 39 47 39 51 38 55
+               C 38 58 39 60 40 62
+               L 48 62
+               C 49 60 50 58 50 55
+               C 50 51 49 47 48 43
+               C 48 39 48 35 47 31 Z"/>
+      <path style="fill:#f5e8b8;stroke:#3d1c08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40.5 62 L 41 64 L 41.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#3d1c08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 43.5 62 L 44 64 L 44.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#3d1c08;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46.5 62 L 47 64 L 47.5 62 Z"/>
+      <circle style="fill:#3d1c08" cx="79" cy="7" r="1.3"/>
+      <path style="fill:none;stroke:#3d1c08;stroke-width:1.2;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 80 10 C 83 10 86 10 88 10"/>
+    </svg>`,
+
+    // Ankylosaurus — low armored quadruped, osteoderm bumps, side spikes, clubbed tail
+    anky: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <!-- Far legs (behind body) — dark leather brown -->
+      <path style="fill:#4e2e10;stroke:#28160a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40 52 L 40 62 L 45 62 L 45 52 Z"/>
+      <path style="fill:#4e2e10;stroke:#28160a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 68 52 L 68 62 L 73 62 L 73 52 Z"/>
+      <!-- Club tail connector -->
+      <path style="fill:#6a3e1a;stroke:#28160a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 18 46 C 14 47 10 47 6 48 L 4 49 L 4 51 L 6 51 C 10 51 14 51 18 50 Z"/>
+      <!-- Club tail ellipse -->
+      <ellipse style="fill:#6a3e1a;stroke:#28160a;stroke-width:1.0" vector-effect="non-scaling-stroke" cx="6" cy="49.5" rx="6" ry="5"/>
+      <!-- Club spikes — amber armor color (same as osteoderms) -->
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 3 46 C 1 44 -1 42 0 41 C 2 42 4 44 5 45 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 2 49 C 0 49 -2 50 -2 50 C 0 51 2 51 3 50 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 3 53 C 1 55 -1 56 0 56 C 2 55 4 54 5 53 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 9 45 C 10 43 10 41 10 41 C 11 43 11 45 10 46 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 9 54 C 10 56 10 58 10 58 C 11 56 11 54 10 53 Z"/>
+      <!-- Main body — dark leather brown -->
+      <path style="fill:#6a3e1a;stroke:#28160a;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 18 44 C 18 40 19 36 21 33 C 25 28 32 26 40 26 C 47 25 54 25 60 26 C 68 27 76 31 80 36 C 82 39 84 41 84 44 C 84 46 84 48 83 50 C 81 51 79 52 76 52 L 24 52 C 21 52 19 51 18 49 C 18 47 18 45 18 44 Z"/>
+      <!-- Belly band -->
+      <path style="fill:#f0d99a" d="M 24 50 C 30 48 42 47 52 47 C 62 47 70 48 74 50 Z"/>
+      <!-- Osteoderm armor scutes — amber/bone, rounded bumps (not tall fins) -->
+      <ellipse style="fill:#9a7a30;stroke:#28160a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="30" cy="38" rx="3.8" ry="2.6"/>
+      <ellipse style="fill:#9a7a30;stroke:#28160a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="40" cy="34" rx="3.8" ry="2.6"/>
+      <ellipse style="fill:#9a7a30;stroke:#28160a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="50" cy="32" rx="3.8" ry="2.6"/>
+      <ellipse style="fill:#9a7a30;stroke:#28160a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="60" cy="33" rx="3.8" ry="2.6"/>
+      <ellipse style="fill:#9a7a30;stroke:#28160a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="70" cy="36" rx="3.8" ry="2.6"/>
+      <!-- Side armor keels — amber, low and wide (reads as armor not fins) -->
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 22 40 C 20 37 19 34 18 32 C 21 33 24 36 26 39 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 30 30 C 29 27 28 24 28 22 C 31 24 33 27 34 30 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 28 C 46 25 47 22 47 20 C 48 23 49 26 50 28 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 66 30 C 67 27 69 24 70 22 C 70 25 70 28 68 30 Z"/>
+      <path style="fill:#9a7a30;stroke:#28160a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 78 40 C 79 37 81 34 82 32 C 80 35 77 38 74 40 Z"/>
+      <!-- Head -->
+      <path style="fill:#6a3e1a;stroke:#28160a;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 82 42 C 86 41 90 42 92 44 C 94 46 94 48 93 50 C 91 52 88 52 85 52 C 82 51 80 50 80 48 C 80 45 81 43 82 42 Z"/>
+      <!-- Near legs (in front of body) -->
+      <path style="fill:#6a3e1a;stroke:#28160a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 26 52 L 26 62 L 31 62 L 31 52 Z"/>
+      <path style="fill:#6a3e1a;stroke:#28160a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 54 52 L 54 62 L 59 62 L 59 52 Z"/>
+      <!-- Far front leg claws -->
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40.5 62 L 41 64 L 41.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 62 L 42.5 64 L 43 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 43.5 62 L 44 64 L 44.5 62 Z"/>
+      <!-- Far back leg claws -->
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 68.5 62 L 69 64 L 69.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 70 62 L 70.5 64 L 71 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 71.5 62 L 72 64 L 72.5 62 Z"/>
+      <!-- Near front leg claws -->
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 26.5 62 L 27 64 L 27.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 28 62 L 28.5 64 L 29 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 29.5 62 L 30 64 L 30.5 62 Z"/>
+      <!-- Near back leg claws -->
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 54.5 62 L 55 64 L 55.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 56 62 L 56.5 64 L 57 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#28160a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 57.5 62 L 58 64 L 58.5 62 Z"/>
+      <!-- Eye -->
+      <circle style="fill:#28160a" cx="87" cy="46" r="1.5"/>
+      <!-- Mouth -->
+      <path style="fill:none;stroke:#28160a;stroke-width:1.2;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 89 49 C 91 49 92 49 93 49"/>
+    </svg>`,
+
+    // Stegosaurus — arched back, five diamond plates, thagomizer tail, small head
+    stego: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <!-- Far legs (behind body) -->
+      <path style="fill:#1e3420;stroke:#101e12;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40 52 L 40 62 L 45 62 L 45 52 Z"/>
+      <path style="fill:#1e3420;stroke:#101e12;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 72 52 L 72 62 L 77 62 L 77 52 Z"/>
+      <!-- Tail connector -->
+      <path style="fill:#2e4a30;stroke:#101e12;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 16 46 C 12 47 8 47 4 48 L 2 49 L 2 51 L 4 52 C 8 52 12 51 16 50 Z"/>
+      <!-- Thagomizer spikes — all anchored to tail connector band (y=47–52, x=2–8) -->
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 8 47 L 4 47 L -3 38 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 48 L 2 48 L -4 42 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 2 50 L 4 50 L -4 57 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 51 L 8 51 L -3 61 Z"/>
+      <!-- Main body -->
+      <path style="fill:#2e4a30;stroke:#101e12;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 16 46 C 16 42 18 38 20 34 C 24 28 30 24 36 22 C 42 20 48 19 52 20 C 58 20 64 22 70 26 C 76 30 80 36 83 42 C 84 44 84 46 84 47 C 83 50 81 52 78 52 L 22 52 C 19 52 17 50 16 48 C 16 47 16 46 16 46 Z"/>
+      <!-- Belly band -->
+      <path style="fill:#f0d99a" d="M 22 50 C 34 48 52 47 70 48 L 78 49 L 78 50 L 22 50 Z"/>
+      <!-- Dorsal plates — leaf/spade: outward bow from control1, near-vertical tip approach from control2 -->
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.9;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 25 26 C 20 21 27.5 17 28 16 C 28.5 17 36 21 31 26 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.9;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 35 22 C 29 14 37.5 9 38 8 C 38.5 9 47 14 41 22 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.9;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 20 C 40 11 49.5 5 50 4 C 50.5 5 60 11 54 20 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.9;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 59 22 C 53 14 61.5 9 62 8 C 62.5 9 71 14 65 22 Z"/>
+      <path style="fill:#c8783c;stroke:#101e12;stroke-width:0.9;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 69 28 C 64 22 71.5 19 72 18 C 72.5 19 80 22 75 28 Z"/>
+      <!-- Head -->
+      <path style="fill:#2e4a30;stroke:#101e12;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 82 42 C 86 41 90 42 92 44 C 94 46 94 48 93 50 C 91 52 88 52 85 52 C 82 51 80 50 80 48 C 80 45 81 43 82 42 Z"/>
+      <!-- Near legs (in front of body) -->
+      <path style="fill:#2e4a30;stroke:#101e12;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 26 52 L 26 62 L 31 62 L 31 52 Z"/>
+      <path style="fill:#2e4a30;stroke:#101e12;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 58 52 L 58 62 L 63 62 L 63 52 Z"/>
+      <!-- Far front leg claws -->
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40.5 62 L 41 64 L 41.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 62 L 42.5 64 L 43 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 43.5 62 L 44 64 L 44.5 62 Z"/>
+      <!-- Far back leg claws -->
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 72.5 62 L 73 64 L 73.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 74 62 L 74.5 64 L 75 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 75.5 62 L 76 64 L 76.5 62 Z"/>
+      <!-- Near front leg claws -->
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 26.5 62 L 27 64 L 27.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 28 62 L 28.5 64 L 29 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 29.5 62 L 30 64 L 30.5 62 Z"/>
+      <!-- Near back leg claws -->
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 58.5 62 L 59 64 L 59.5 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 60 62 L 60.5 64 L 61 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#101e12;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 61.5 62 L 62 64 L 62.5 62 Z"/>
+      <!-- Eye and mouth -->
+      <circle style="fill:#101e12" cx="88" cy="46" r="1.5"/>
+      <path style="fill:none;stroke:#101e12;stroke-width:1.2;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 89 49 C 91 49 92 49 93 49"/>
+    </svg>`,
+
+    // Triceratops — three horns, scalloped frill, beaked face, stocky body
+    trike: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <!-- Far legs (behind body) -->
+      <path style="fill:#3a4818;stroke:#18280a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 28 54 L 28 64 L 34 64 L 34 54 Z"/>
+      <path style="fill:#3a4818;stroke:#18280a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 54 54 L 54 64 L 60 64 L 60 54 Z"/>
+      <!-- Tail nub -->
+      <path style="fill:#4a5a1e;stroke:#18280a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 8 44 C 4 43 2 43 0 44 L 0 48 C 2 48 4 47 8 46 Z"/>
+      <!-- Main body -->
+      <path style="fill:#4a5a1e;stroke:#18280a;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 8 40 C 8 34 10 30 14 28 C 18 26 24 25 32 26 C 40 26 48 26 56 28 C 60 29 62 30 62 32 C 64 36 64 40 64 44 C 64 48 62 51 60 53 C 56 55 50 56 40 56 C 30 56 22 56 16 54 C 12 53 9 50 8 46 C 8 44 8 42 8 40 Z"/>
+      <!-- Belly band -->
+      <path style="fill:#f0d99a" d="M 16 50 C 28 49 46 49 58 50 L 58 52 L 16 52 Z"/>
+      <!-- Head assembly — scaled 15% from neck-body junction (62, 40) -->
+      <g transform="translate(62, 40) scale(1.15) translate(-62, -40)">
+      <!-- Frill (amber accent — swept back, bottom tucked behind neck) -->
+      <path style="fill:#c89840;stroke:#18280a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 60 26 C 59 19 60 14 63 13 C 68 12 75 12 79 14 C 81 17 82 20 82 28 L 82 40 C 81 43 78 44 74 44 C 70 44 66 43 63 41 C 61 39 60 33 60 26 Z"/>
+      <!-- Frill scalloped edge (darker amber shadow) -->
+      <path style="fill:#9a7228" d="M 63 17 C 65 20 67 20 67 17 C 69 20 71 20 71 17 C 73 20 75 20 75 17 C 77 20 79 20 79 17 L 79 41 C 77 44 75 44 75 41 C 73 44 71 44 71 41 C 69 44 67 44 67 41 C 65 44 63 44 63 41 Z"/>
+      <!-- Neck — open back path (no Z) so base merges seamlessly into body, no visible seam -->
+      <path style="fill:#4a5a1e;stroke:#18280a;stroke-width:1.1;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 62 33 C 66 31 70 35 74 37 L 74 43 C 70 46 65 48 62 47"/>
+      <!-- Head — shifted left 2u so it tucks closer to the frill -->
+      <path style="fill:#4a5a1e;stroke:#18280a;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 76 32 C 80 31 84 32 87 35 C 89 37 90 40 90 43 C 90 46 88 48 86 50 C 82 51 78 51 75 49 C 73 47 72 45 72 42 C 72 38 74 34 76 32 Z"/>
+      <!-- Horns — cream/ivory (diagnostic feature) -->
+      <path style="fill:#f0e8b8;stroke:#18280a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 76 34 C 74 24 81 12 84 14 C 85 15 84 26 82 34 Z"/>
+      <path style="fill:#f0e8b8;stroke:#18280a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 82 34 C 80 24 87 14 89 16 C 90 17 89 27 87 34 Z"/>
+      <path style="fill:#f0e8b8;stroke:#18280a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 86 40 C 87 37 91 34 92 35 C 90 38 89 40 87 41 Z"/>
+      <!-- Eye -->
+      <circle style="fill:#18280a" cx="80" cy="40" r="1.5"/>
+      </g>
+      <!-- Near legs (in front of body) -->
+      <path style="fill:#4a5a1e;stroke:#18280a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 16 54 L 16 64 L 22 64 L 22 54 Z"/>
+      <path style="fill:#4a5a1e;stroke:#18280a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 54 L 42 64 L 48 64 L 48 54 Z"/>
+      <!-- Far front leg claws -->
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 28.5 64 L 29 66 L 29.5 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 30 64 L 30.5 66 L 31 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 31.5 64 L 32 66 L 32.5 64 Z"/>
+      <!-- Far back leg claws -->
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 54.5 64 L 55 66 L 55.5 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 56 64 L 56.5 66 L 57 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 57.5 64 L 58 66 L 58.5 64 Z"/>
+      <!-- Near front leg claws -->
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 16.5 64 L 17 66 L 17.5 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 18 64 L 18.5 66 L 19 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 19.5 64 L 20 66 L 20.5 64 Z"/>
+      <!-- Near back leg claws -->
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42.5 64 L 43 66 L 43.5 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 44 64 L 44.5 66 L 45 64 Z"/>
+      <path style="fill:#f5e8b8;stroke:#18280a;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 45.5 64 L 46 66 L 46.5 64 Z"/>
+    </svg>`,
+
+    // Parasaurolophus — long backward tube crest, duck bill, bipedal lean
+    paraso: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <!-- Front leg (background — drawn before body, darker for depth) -->
+      <path style="fill:#122e20;stroke:#081810;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 44 35 C 43 40 42 46 41 52 C 41 56 40 59 40 62 L 46 62 C 46 59 46 56 47 52 C 48 46 49 40 50 35 Z"/>
+      <!-- Main body — torso 15% larger -->
+      <path style="fill:#1a4830;stroke:#081810;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 44 C 9 43 14 42 19 41 C 24 40 28 38 30 36 C 33 31 36 26 40 22 C 44 20 48 20 52 20 C 56 21 60 22 62 27 C 64 30 64 34 62 37 C 60 40 56 39 50 39 C 46 39 42 40 38 41 C 32 41 26 42 20 43 C 14 43 9 44 4 45 Z"/>
+      <!-- Belly band — interior -->
+      <path style="fill:#f0d99a" d="M 32 37 C 40 35 48 34 56 32 L 60 31 L 60 32 L 56 33 C 48 35 40 36 32 38 Z"/>
+      <!-- Rear leg (foreground — drawn after body, light, top extends into body via open path) -->
+      <path style="fill:#1a4830;stroke:#081810;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 37 30 C 36 36 35 44 34 52 C 34 56 33 59 33 62 L 39 62 C 39 59 39 56 40 52 C 41 44 42 36 43 30"/>
+      <!-- Tube crest — 20% smaller, drawn BEFORE head -->
+      <path style="fill:#c87840;stroke:#081810;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 77 27 C 74 23 69 17 65 12 C 61 8 58 6 54 7 L 53 8 L 53 9 C 57 11 60 14 63 19 C 65 22 66 25 67 27 Z"/>
+      <!-- Crest inner hollow -->
+      <path style="fill:#a05c28" d="M 73 27 C 70 24 67 18 64 13 C 61 9 57 8 54 9 C 56 11 59 13 62 17 C 64 21 65 25 67 27 Z"/>
+      <!-- Head/bill — 10% smaller -->
+      <path style="fill:#1a4830;stroke:#081810;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 60 27 C 63 25 67 23 71 23 C 74 23 78 24 82 26 C 83 27 85 28 86 29 L 86 33 L 85 33 C 83 35 82 35 80 35 C 75 34 73 33 69 32 C 66 31 64 32 60 34 Z"/>
+      <!-- Bill ridge line -->
+      <path style="fill:none;stroke:#081810;stroke-width:1.0;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 80 34 C 82 34 83 34 85 34"/>
+      <!-- Near arm — lower and forward for visibility in small tiles -->
+      <path style="fill:#1a4830;stroke:#081810;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 56 40 C 58 39 61 39 63 42 L 63 45 C 61 46 58 46 56 43 Z"/>
+      <!-- Arm claws -->
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 59 45 L 59.5 47 L 60 45 Z"/>
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 61 45 L 61.5 47 L 62 45 Z"/>
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 63 45 L 63.5 47 L 64 45 Z"/>
+      <!-- Far leg claws — aligned with foot (x=33-39) -->
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 33 62 L 33.5 64 L 34 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 35 62 L 35.5 64 L 36 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 37 62 L 37.5 64 L 38 62 Z"/>
+      <!-- Near leg claws — aligned with backward-angled foot (x=40-46) -->
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40 62 L 40.5 64 L 41 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 62 L 42.5 64 L 43 62 Z"/>
+      <path style="fill:#f5e8b8;stroke:#081810;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 44 62 L 44.5 64 L 45 62 Z"/>
+      <!-- Eye and bill mark -->
+      <circle style="fill:#081810" cx="76" cy="26" r="1.5"/>
+      <path style="fill:none;stroke:#081810;stroke-width:1.2;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 82 31 C 83 31 85 31 86 31"/>
+    </svg>`,
+
+    // T-Rex — massive head with teeth, tiny 2-finger arm, powerful haunches
+    trex: `<svg viewBox="0 0 100 70" shape-rendering="geometricPrecision">
+      <!-- Far leg (behind body) — forward lean -->
+      <path style="fill:#8c3c18;stroke:#381806;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 38 C 50 41 50 45 50 50 C 50 53 50 56 50 58 C 51 60 52 61 52 62 L 58 62 C 58 60 58 58 58 56 C 57 53 56 50 55 47 C 54 44 54 41 54 38 Z"/>
+      <!-- Main body — tail tapers to point -->
+      <path style="fill:#c85e28;stroke:#381806;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 2 40 C 3 37 7 35 9 35 C 14 34 19 33 24 32 C 28 31 35 28 38 26 C 41 24 46 22 52 21 C 56 23 60 25 62 28 C 62 32 62 36 60 40 C 57 43 54 45 50 46 C 40 46 34 45 28 44 C 21 43 13 43 7 43 C 4 43 3 42 2 40 Z"/>
+      <!-- Belly band — raised to stay inside tapered tail -->
+      <path style="fill:#f5e8b8" d="M 10 42 C 20 41 34 41 50 42 L 54 43 L 10 42 Z"/>
+      <!-- Neck -->
+      <path style="fill:#c85e28;stroke:#381806;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 56 22 C 56 18 58 16 61 14 L 63 15 L 63 18 C 62 19 62 22 61 24 C 59 25 58 25 56 24 C 55 23 55 22 56 22 Z"/>
+      <!-- Upper jaw / head — flat top across the snout for a more defined silhouette -->
+      <path style="fill:#c85e28;stroke:#381806;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 56 12 C 60 10 65 9 70 9 L 86 9 L 88 11 L 88 22 L 87 23 C 86 24 85 25 83 26 C 80 27 76 27 70 27 C 64 28 58 26 56 22 C 55 18 54 16 55 13 C 55 12 55 12 56 12 Z"/>
+      <!-- Lower jaw — thicker (4 units at snout) for a more formidable look, extending fully to snout tip -->
+      <path style="fill:#c85e28;stroke:#381806;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 65 27 C 69 28 76 30 82 30 L 88 29 L 88 33 C 83 33 77 32 70 31 C 67 30 65 28 65 27 Z"/>
+      <!-- Upper teeth — extended to snout tip, bases at upper jaw bottom edge -->
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 70 27 L 70.5 30 L 71 27 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 72.5 27 L 73 30 L 73.5 27 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 75 27 L 75.5 30 L 76 27 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 77.5 27 L 78 30 L 78.5 27 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 80 26.5 L 80.5 29.5 L 81 26.5 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 82.5 25 L 83 28 L 83.5 25 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 85 24 L 85.5 27 L 86 24 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 86.8 23.5 L 87.3 26.5 L 87.8 23.5 Z"/>
+      <!-- Lower teeth — extended to snout, bases at new jaw top edge, pointing up into mouth -->
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 71.5 30 L 72 28 L 72.5 30 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 74 30 L 74.5 28 L 75 30 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 76.5 30.5 L 77 28.5 L 77.5 30.5 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 79 30.5 L 79.5 28.5 L 80 30.5 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 81.5 30 L 82 28 L 82.5 30 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 84 29.5 L 84.5 27.5 L 85 29.5 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 86 29 L 86.5 27 L 87 29 Z"/>
+      <!-- Vestigial arm — rotated 90° CW from pivot (50,30) -->
+      <path style="fill:#c85e28;stroke:#381806;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 50 30 C 52 31 54 32 56 33 C 57 34 58 35 58 36 L 58 37 L 59 37 L 59 35 C 59 33 58 31 57 30 C 55 29 53 28 52 28 Z"/>
+      <!-- Near leg (in front of body) — forward lean -->
+      <path style="fill:#c85e28;stroke:#381806;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42 38 C 46 40 48 44 48 50 C 48 53 47 56 46 58 C 47 60 48 61 50 62 L 42 62 C 41 60 40 58 40 56 C 39 53 38 50 37 47 C 37 44 36 41 36 38 Z"/>
+      <!-- Far leg claws -->
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 53 62 L 53.5 64 L 54 62 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 55.5 62 L 56 64 L 56.5 62 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 58 62 L 58.5 64 L 59 62 Z"/>
+      <!-- Near leg claws -->
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 42.5 62 L 43 64 L 43.5 62 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 45 62 L 45.5 64 L 46 62 Z"/>
+      <path style="fill:#f5f0d8;stroke:#381806;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 62 L 48.5 64 L 49 62 Z"/>
+      <!-- Eye -->
+      <circle style="fill:#381806" cx="78" cy="18" r="1.5"/>
+    </svg>`,
+
+    // Spinosaurus — tall sail with rib lines, long crocodilian snout, bipedal
+    spino: `<svg viewBox="0 -3 100 73" shape-rendering="geometricPrecision">
+      <!-- Far leg (fixed, behind body) — scaled 10% from hip -->
+      <g transform="translate(36,50) scale(1.1) translate(-36,-50)">
+        <path style="fill:#3c7860;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 33 50 C 33 54 32 58 31 61 C 30 62 29 62 29 63 L 35 63 C 36 62 37 61 37 60 C 38 57 38 54 39 50 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 30 63 L 30.5 65 L 31 63 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 32 63 L 32.5 65 L 33 63 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 34 63 L 34.5 65 L 35 63 Z"/>
+      </g>
+      <!-- Rotating group: tail, sail, body, head — pivot at hip (40, 50), -20° CCW -->
+      <g transform="rotate(-20, 40, 50)">
+        <!-- Dorsal sail -->
+        <path style="fill:#c87840;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 28 36 C 34 24 44 10 54 3 C 57 1 60 1 62 3 C 64 6 66 14 68 24 C 69 28 70 32 70 36 Z"/>
+        <!-- Sail rib lines -->
+        <path style="fill:none;stroke:#302010;stroke-width:0.9;stroke-linecap:round;opacity:0.7" vector-effect="non-scaling-stroke" d="M 35 36 C 37 28 40 20 43 13"/>
+        <path style="fill:none;stroke:#302010;stroke-width:0.9;stroke-linecap:round;opacity:0.7" vector-effect="non-scaling-stroke" d="M 43 36 C 45 26 48 16 52 8"/>
+        <path style="fill:none;stroke:#302010;stroke-width:0.9;stroke-linecap:round;opacity:0.7" vector-effect="non-scaling-stroke" d="M 51 36 C 53 26 56 16 60 8"/>
+        <path style="fill:none;stroke:#302010;stroke-width:0.9;stroke-linecap:round;opacity:0.7" vector-effect="non-scaling-stroke" d="M 58 36 C 60 29 62 22 64 16"/>
+        <path style="fill:none;stroke:#302010;stroke-width:0.9;stroke-linecap:round;opacity:0.7" vector-effect="non-scaling-stroke" d="M 64 36 C 65 31 66 26 67 22"/>
+        <!-- Main body + tail — merged, curved muscular back, no seam -->
+        <path style="fill:#6ab098;stroke:#302010;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 22 36 C 28 31 52 29 66 36 C 69 34 74 31 80 31 C 83 32 84 35 83 40 C 81 46 76 49 70 51 C 62 53 50 54 38 53 C 28 52 22 50 22 47 C 21 47 20 47 18 47 C 12 48 7 50 4 50 C 2 49 1 47 2 45 C 6 40 14 37 22 36 Z"/>
+        <!-- Belly band -->
+        <path style="fill:#f5e8c0" d="M 28 48 C 44 47 58 47 68 48 L 71 49 L 28 49 Z"/>
+        <!-- Near arm (forelimb) — attaches at body front, hangs below -->
+        <path style="fill:#6ab098;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 65 39 C 63 44 61 50 60 55 C 61 57 64 57 66 55 C 65 50 66 45 68 40 Z"/>
+        <!-- Arm claws -->
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 59 56 L 59.5 58 L 60 56 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 62 57 L 62.5 59 L 63 57 Z"/>
+        <!-- Head group — sub-rotated 15° CW, scaled 10% longer / 10% shorter -->
+        <g transform="rotate(15, 87, 32) translate(87,32) scale(1.1, 0.9) translate(-87,-32)">
+          <g transform="translate(77,32) scale(1.1, 1) translate(-77,-32)">
+          <!-- Head / cranial dome -->
+          <path style="fill:#6ab098;stroke:#302010;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 77 26 C 82 23 88 23 93 26 C 97 28 99 32 98 36 C 97 39 93 41 88 41 C 83 41 78 39 76 36 C 75 33 75 29 77 26 Z"/>
+          <!-- Upper snout — 1 unit thinner -->
+          <path style="fill:#6ab098;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 85 36 C 89 35 93 35 97 35 L 99 36 L 99 38 C 95 38 89 38 85 38 Z"/>
+          <!-- Lower jaw — 1 unit thicker and pivoted down so teeth are more visible -->
+          <path style="fill:#6ab098;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 86 39 C 90 39.5 94 40 97 40 L 99 40 L 99 44 C 95 43.5 90 42.5 86 41 Z"/>
+          <!-- Upper teeth — extended to snout, pointing down -->
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 87 38 L 87.5 40 L 88 38 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 89.5 38 L 90 40 L 90.5 38 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 92 38 L 92.5 40 L 93 38 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 94.5 38 L 95 40 L 95.5 38 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 97 38 L 97.5 40 L 98 38 Z"/>
+          <!-- Lower teeth — bases at new jaw top, tips pointing up into mouth -->
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 88.5 39 L 89 37 L 89.5 39 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 91 39.5 L 91.5 37.5 L 92 39.5 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 93.5 40 L 94 38 L 94.5 40 Z"/>
+          <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 96 40 L 96.5 38 L 97 40 Z"/>
+          <!-- Eye -->
+          <circle style="fill:#302010" cx="88" cy="30" r="1.5"/>
+          </g>
+        </g>
+      </g>
+      <!-- Near leg (fixed, in front of body) — scaled 10% from hip -->
+      <g transform="translate(42,50) scale(1.1) translate(-42,-50)">
+        <path style="fill:#6ab098;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 39 50 C 39 54 38 58 37 61 C 36 62 35 62 35 63 L 43 63 C 44 62 45 61 45 60 C 45 57 45 54 45 50 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 36.5 63 L 37 65 L 37.5 63 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 38.5 63 L 39 65 L 39.5 63 Z"/>
+        <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40.5 63 L 41 65 L 41.5 63 Z"/>
+      </g>
+    </svg>`,
+
+    // Brachiosaurus — giraffe slope (shoulder high, hip low), forelimbs taller than hindlimbs
+    brachio: `<svg viewBox="-22 -4 122 74" shape-rendering="geometricPrecision">
+      <!-- Far hindlimbs (behind body, shorter) -->
+      <path style="fill:#988020;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 26 50 L 26 64 L 34 64 L 34 50 Z"/>
+      <!-- Far forelimbs (behind body, taller) -->
+      <path style="fill:#988020;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 52 44 L 52 64 L 60 64 L 60 44 Z"/>
+      <!-- Tail — long sweeping taper, thick base, fine tip. Base open (no Z) for seamless body merge. -->
+      <path style="fill:#d4be30;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 12 38 C 6 40 -4 44 -12 47 C -16 48 -19 49 -20 50 L -20 51 C -16 52 -8 51 0 49 C 6 48 10 47 12 46"/>
+      <!-- Long neck (body will cover its base) -->
+      <path style="fill:#d4be30;stroke:#302010;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 36 C 50 32 52 28 54 24 C 56 20 58 16 60 12 C 62 8 64 5 67 3 L 71 4 L 72 6 C 70 8 68 11 66 14 C 64 18 62 22 60 26 C 58 30 56 34 56 38 Z"/>
+      <!-- Head (tiny at top of neck, domed nasal arch) -->
+      <path style="fill:#d4be30;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 65 3 C 67 -1 70 -2 73 0 C 76 2 78 4 79 5 L 80 6 L 80 7 L 78 7 C 75 7 72 6 70 5 C 67 4 65 4 64 4 Z"/>
+      <!-- Main body — steep giraffe slope: shoulder high, hip low -->
+      <path style="fill:#d4be30;stroke:#302010;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 8 44 C 10 38 20 28 32 22 C 42 17 52 15 60 16 C 64 18 66 22 66 28 C 66 34 64 40 61 43 C 57 46 52 48 42 49 C 32 49 20 49 14 49 C 10 49 8 47 8 44 Z"/>
+      <!-- Belly band -->
+      <path style="fill:#f5e8c0" d="M 12 45 C 26 44 40 44 50 44 L 52 45 L 52 46 L 12 46 Z"/>
+      <!-- Near hindlimbs (in front of body, shorter) -->
+      <path style="fill:#d4be30;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 14 50 L 14 64 L 22 64 L 22 50 Z"/>
+      <!-- Near forelimbs (in front of body, taller) -->
+      <path style="fill:#d4be30;stroke:#302010;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40 44 L 40 64 L 49 64 L 49 44 Z"/>
+      <!-- Far hindlimb claws -->
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 26.5 64 L 27 66 L 27.5 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 29 64 L 29.5 66 L 30 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 31.5 64 L 32 66 L 32.5 64 Z"/>
+      <!-- Far forelimb claws -->
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 52.5 64 L 53 66 L 53.5 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 55 64 L 55.5 66 L 56 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 57.5 64 L 58 66 L 58.5 64 Z"/>
+      <!-- Near hindlimb claws -->
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 14.5 64 L 15 66 L 15.5 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 17 64 L 17.5 66 L 18 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 19.5 64 L 20 66 L 20.5 64 Z"/>
+      <!-- Near forelimb claws -->
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40.5 64 L 41 66 L 41.5 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 43 64 L 43.5 66 L 44 64 Z"/>
+      <path style="fill:#f5f0d8;stroke:#302010;stroke-width:0.7;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 64 L 46.5 66 L 47 64 Z"/>
+      <!-- Eye and mouth mark -->
+      <circle style="fill:#302010" cx="74" cy="4" r="1.2"/>
+      <path style="fill:none;stroke:#302010;stroke-width:1.0;stroke-linecap:round" vector-effect="non-scaling-stroke" d="M 76 6 C 78 6 79 6 80 6"/>
+    </svg>`,
+
+    // Titan — compressed barrel body, long tail, crown sitting on head
+    titan: `<svg viewBox="-25 -8 110 82" shape-rendering="geometricPrecision">
+      <!-- Far legs (behind body) — far hind shifted forward 2u to match near hind -->
+      <path style="fill:#282e10;stroke:#14180a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 18 49 C 18 56 19 62 20 67 L 26 67 C 27 62 28 56 28 49"/>
+      <path style="fill:#282e10;stroke:#14180a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 46 49 C 46 56 47 62 48 67 L 54 67 C 55 62 56 56 56 49"/>
+      <!-- Far foot pads -->
+      <ellipse style="fill:#1c2008;stroke:#14180a;stroke-width:0.5" vector-effect="non-scaling-stroke" cx="23" cy="67" rx="4" ry="1.0"/>
+      <ellipse style="fill:#1c2008;stroke:#14180a;stroke-width:0.5" vector-effect="non-scaling-stroke" cx="51" cy="67" rx="4" ry="1.0"/>
+      <!-- Far foot claws -->
+      <path style="fill:#d4c898;stroke:#14180a;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 20 67.5 L 20.5 70 L 21 67.5 Z"/>
+      <path style="fill:#d4c898;stroke:#14180a;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 22.5 67.5 L 23 70 L 23.5 67.5 Z"/>
+      <path style="fill:#d4c898;stroke:#14180a;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 25 67.5 L 25.5 70 L 26 67.5 Z"/>
+      <path style="fill:#d4c898;stroke:#14180a;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 67.5 L 48.5 70 L 49 67.5 Z"/>
+      <path style="fill:#d4c898;stroke:#14180a;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 50.5 67.5 L 51 70 L 51.5 67.5 Z"/>
+      <path style="fill:#d4c898;stroke:#14180a;stroke-width:0.5;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 53 67.5 L 53.5 70 L 54 67.5 Z"/>
+      <!-- Long sweeping tail, thick base tapering to a fine tip. Base open (no Z) for seamless body merge. -->
+      <path style="fill:#3a4018;stroke:#14180a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 8 41 C 2 43 -6 46 -14 49 C -19 51 -22 52 -23 53 L -23 54 C -19 55 -13 54 -7 53 C -1 52 4 51 8 50"/>
+      <!-- Long neck — wider base at shoulder, tapering up to head -->
+      <path style="fill:#3a4018;stroke:#14180a;stroke-width:1.2;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 48 40 C 51 30 56 18 62 10 C 64 6 66 5 67 5 L 70 7 L 70 8 C 68 10 66 14 64 18 C 63 26 62 34 62 40 L 62 42 L 48 42 Z"/>
+      <!-- Main body — barrel torso compressed ~10% vertically -->
+      <path style="fill:#3a4018;stroke:#14180a;stroke-width:1.4;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 4 42 C 4 37 8 30 14 26 C 20 23 28 22 36 22 C 44 22 52 23 58 26 C 62 28 65 31 65 35 C 65 40 64 44 62 48 C 60 51 56 53 50 53 C 38 54 24 54 14 53 C 8 52 4 48 4 42 Z"/>
+      <!-- Belly band -->
+      <path style="fill:#f0d99a" d="M 18 49 C 28 48 40 48 48 49 L 50 50 L 50 51 L 18 51 Z"/>
+      <!-- Head -->
+      <path style="fill:#3a4018;stroke:#14180a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 60 6 C 64 4 68 4 72 6 C 74 7 75 8 76 9 L 76 10 L 75 11 L 72 11 C 68 10 64 9 60 8 Z"/>
+      <!-- Eye -->
+      <circle style="fill:#14180a" cx="70" cy="8" r="1.2"/>
+      <!-- Crown (gold) — base sits IN the head dome, shorter spikes for proportion -->
+      <path style="fill:#c89820;stroke:#14180a;stroke-width:0.8;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 64 6 L 64 2 L 66 -2 L 67 2 L 68 -4 L 69 2 L 70 -2 L 72 2 L 72 6 Z"/>
+      <!-- Crown jewels on spike tips -->
+      <circle style="fill:#b03828;stroke:#14180a;stroke-width:0.3" vector-effect="non-scaling-stroke" cx="66" cy="-1.5" r="0.8"/>
+      <circle style="fill:#b03828;stroke:#14180a;stroke-width:0.4" vector-effect="non-scaling-stroke" cx="68" cy="-3.5" r="0.9"/>
+      <circle style="fill:#b03828;stroke:#14180a;stroke-width:0.3" vector-effect="non-scaling-stroke" cx="70" cy="-1.5" r="0.8"/>
+      <!-- Near legs (in front of body) — tapered, open top -->
+      <path style="fill:#3a4018;stroke:#14180a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 12 49 C 12 56 13 62 14 67 L 20 67 C 21 62 22 56 22 49"/>
+      <path style="fill:#3a4018;stroke:#14180a;stroke-width:1.0;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 40 49 C 40 56 41 62 42 67 L 50 67 C 51 62 52 56 52 49"/>
+      <!-- Near foot pads -->
+      <ellipse style="fill:#2a3010;stroke:#14180a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="17" cy="67" rx="4.5" ry="1.0"/>
+      <ellipse style="fill:#2a3010;stroke:#14180a;stroke-width:0.6" vector-effect="non-scaling-stroke" cx="46" cy="67" rx="5.5" ry="1.0"/>
+      <!-- Near foot claws -->
+      <path style="fill:#f5e8b8;stroke:#14180a;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 13.5 67.5 L 14 70 L 14.5 67.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#14180a;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 16.5 67.5 L 17 70 L 17.5 67.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#14180a;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 19.5 67.5 L 20 70 L 20.5 67.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#14180a;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 41.5 67.5 L 42 70 L 42.5 67.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#14180a;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 45.5 67.5 L 46 70 L 46.5 67.5 Z"/>
+      <path style="fill:#f5e8b8;stroke:#14180a;stroke-width:0.6;stroke-linejoin:round" vector-effect="non-scaling-stroke" d="M 49.5 67.5 L 50 70 L 50.5 67.5 Z"/>
+    </svg>`,
+  };
+
+  const DINOS = [
+    { name: "Egg", svg: SVG.egg, bg: "#f3dba0", fg: "#4a3a0f", facts: [
+      "Most dinosaur eggs were oval, not round — their elongated shape helped stack them efficiently in circular nest mounds.",
+      "Some dinosaur nests held up to 30 eggs at once, arranged in careful spirals by the parent.",
+      "Fossilised dinosaur eggs have been found on every continent, including Antarctica.",
+      "Eggshell thickness reveals parenting style — thinner shells suggest the parent sat on the nest; thicker ones that eggs were buried, like a sea turtle's.",
+      "The oldest confirmed dinosaur eggs date to roughly 190 million years ago — found in South Africa and belonging to Massospondylus.",
+    ]},
+    { name: "Compy", svg: SVG.compy, bg: "#c6e0a6", fg: "#243c17", facts: [
+      "Compsognathus was roughly the size of a large chicken — you could tuck one under your arm.",
+      "Its name means \"elegant jaw\" in Greek — a very distinguished title for such a tiny predator.",
+      "A German Compsognathus fossil preserved a lizard inside its stomach, capturing its last meal in stone.",
+      "Compsognathus fossils have been found in both Germany and France, making it one of Europe's best-known small theropods.",
+      "For decades, Compsognathus held the record as the smallest known dinosaur — until dozens of tinier species were discovered in the 1990s.",
+    ]},
+    { name: "Raptor", svg: SVG.raptor, bg: "#6ea857", fg: "#0f2208", facts: [
+      "Real Velociraptors weighed about 1.8 kg — roughly turkey-sized. The human-sized ones in Jurassic Park were modelled on Deinonychus.",
+      "Velociraptor means \"swift thief\" in Latin.",
+      "Fossilised quill knobs on Velociraptor forearm bones confirm it had feathers, just like modern birds.",
+      "A famous Mongolian fossil shows a Velociraptor and Protoceratops locked in combat — preserved by a sudden sandstorm 75 million years ago.",
+      "Biomechanical studies suggest the sickle claw was used for gripping and pinning prey — more like a hawk's talon than a slashing blade.",
+    ]},
+    { name: "Gallim", svg: SVG.gallim, bg: "#f5c86c", fg: "#3a2700", facts: [
+      "Gallimimus had no teeth at all — it swallowed food whole, just like modern birds.",
+      "Its name means \"chicken mimic\" — though at 50 km/h, no chicken has ever come close to matching it.",
+      "Gallimimus had unusually large eyes relative to its skull, suggesting it may have been active at dawn or dusk.",
+      "Its flat, shovel-like beak may have been used to filter-feed in shallow water, sieving small prey like a modern flamingo.",
+      "Gallimimus belongs to the ornithomimosaurs — the \"ostrich dinosaurs\" — whose hollow bones, long legs, and toothless beaks evolved strikingly similar to modern ratites, despite no close relationship.",
+    ]},
+    { name: "Paraso", svg: SVG.paraso, bg: "#6cbdd6", fg: "#0d2b38", facts: [
+      "Parasaurolophus's crest was a hollow tube connected to its nose — it worked like a trombone, producing a deep resonant call.",
+      "Scientists used CT scans to digitally reconstruct the sound Parasaurolophus made — a low, foghorn-like honk that would carry for kilometres.",
+      "The crest may have also served as a visual signal, helping Parasaurolophus identify members of its own species at a distance.",
+      "Parasaurolophus could walk on two or four legs, switching gaits depending on speed and terrain.",
+      "Variation in crest size may reflect age or sex — males possibly sporting larger crests for display — rather than indicating different species.",
+    ]},
+    { name: "Anky", svg: SVG.anky, bg: "#a88c5f", fg: "#2a1d08", facts: [
+      "Ankylosaurus was so thoroughly armoured that even its eyelids had bony protective plates.",
+      "The tail club was made of fused vertebrae and bone, and could swing fast enough to fracture large theropod leg bones.",
+      "Ankylosaurus weighed up to 8 tonnes and grew up to 8 metres long — roughly the footprint of a military tank.",
+      "Its armour plates were embedded in the skin, not attached to the skeleton — similar in structure to crocodile scutes.",
+      "Finite element analysis of the tail club suggests it could generate impact forces comparable to a serious vehicle collision — one of the most effective biological weapons in the fossil record.",
+    ]},
+    { name: "Stego", svg: SVG.stego, bg: "#8a7ad4", fg: "#17103f", facts: [
+      "Stegosaurus had a brain roughly the size of a walnut — one of the lowest brain-to-body ratios of any dinosaur.",
+      "The tail spikes are officially nicknamed the \"thagomizer\" — a term coined in a 1982 Far Side cartoon that paleontologists actually adopted into the scientific literature.",
+      "Stegosaurus and T-Rex never coexisted — they were separated by about 80 million years, a longer gap than T-Rex is from us today.",
+      "The back plates were richly supplied with blood vessels, suggesting they could flush with colour for communication or temperature regulation.",
+      "A Stegosaurus tail spike found embedded in an Allosaurus neck vertebra is direct fossil evidence of a successful self-defence strike.",
+    ]},
+    { name: "Trike", svg: SVG.trike, bg: "#d97a57", fg: "#3a1408", facts: [
+      "Triceratops had one of the largest skulls of any land animal ever — sometimes over 2 metres long and up to one-third of its total body length.",
+      "Bite marks from T-Rex teeth on Triceratops frills confirm the two really did fight — and Triceratops sometimes survived the encounter.",
+      "Triceratops was one of the very last non-avian dinosaurs, surviving right up to the mass extinction 66 million years ago.",
+      "Horn shape changed dramatically as Triceratops aged — juveniles had small, backwards-curving horns that grew longer and straightened into adulthood.",
+      "Many paleontologists now think \"Torosaurus\" was not a separate genus but an old adult Triceratops — as the frill's bony texture opened holes with age, changing its appearance completely.",
+    ]},
+    { name: "T-Rex", svg: SVG.trex, bg: "#2f8f62", fg: "#fff4d6", facts: [
+      "T-Rex arms were only about 1 metre long — too short to reach its own mouth — but each could curl roughly 200 kg, stronger than any human.",
+      "T-Rex could consume up to 230 kg of meat in a single bite, with jaws powerful enough to crush solid bone.",
+      "T-Rex had forward-facing eyes like a hawk, giving it binocular vision and depth perception far superior to most other dinosaurs.",
+      "T-Rex grew at staggering speed — gaining up to 2 kg per day during a four-year teenage growth spurt.",
+      "Bone chemistry analysis suggests T-Rex was likely warm-blooded, with a metabolism between a crocodile and a bird — closer to a giant predatory mammal than a cold reptile.",
+    ]},
+    { name: "Spino", svg: SVG.spino, bg: "#3f63b0", fg: "#f3efe0", facts: [
+      "Spinosaurus's neural spines could be nearly 2 metres tall — making its sail taller than a full-grown adult human.",
+      "Spinosaurus is the largest carnivorous dinosaur ever found — up to 15 metres long, edging out even T-Rex.",
+      "Dense, compact leg and rib bones would have helped Spinosaurus stay submerged in water — a unique adaptation among large theropods.",
+      "Its nostrils were positioned high on the skull, allowing it to breathe with its snout in the water while hunting fish.",
+      "A 2020 Nature study found Spinosaurus bone microstructure resembling penguins and hippos, settling decades of debate about whether it was truly semi-aquatic.",
+    ]},
+    { name: "Brachio", svg: SVG.brachio, bg: "#c94538", fg: "#f3efe0", facts: [
+      "Brachiosaurus's heart may have weighed nearly 400 kg and needed to generate twice the blood pressure of any living mammal to pump blood up to its brain.",
+      "It could reach leaves 9 metres off the ground without even stretching — level with a three-storey building.",
+      "Unlike most sauropods that held their necks horizontally, Brachiosaurus held its neck upright like a giraffe — confirmed by its skeletal proportions.",
+      "Its forelimbs were longer than its hindlimbs — giving it a distinctive upward-sloping back — which is why it was named \"arm lizard\" (brachio = arm).",
+      "Brachiosaurus breathed using a bird-like system of air sacs extending into hollow bones, enabling continuous one-way airflow far more efficient than a mammal's in-out breathing.",
+    ]},
+    { name: "Titan", svg: SVG.titan, bg: "#f2c14e", fg: "#2a2008", facts: [
+      "Patagotitan mayorum is so enormous that its skeleton at the American Museum of Natural History can't fit in the hall — its neck pokes out into the corridor.",
+      "Titanosaur eggs were only about the size of a grapefruit — making the hatchling-to-adult size jump one of the most extreme growth ratios in any animal.",
+      "Titanosaurs survived on every continent — including Antarctica — and were the last sauropods alive when the asteroid hit 66 million years ago.",
+      "Despite their bulk, Titanosaurs had relatively hollow, lightweight bones — more pneumatised than earlier sauropods — which helped distribute their massive weight.",
+      "Argentinosaurus, one of the largest Titanosaurs at an estimated 70–80 tonnes, may have taken 40 years to reach full size — likely the longest growth period of any known dinosaur.",
+    ]},
+  ];
+
+  const boardEl = document.getElementById("board");
+  const gridBg = document.getElementById("grid-bg");
+  const tilesEl = document.getElementById("tiles");
+  const scoreEl = document.getElementById("score");
+  const bestEl = document.getElementById("best");
+  const nextEvoEl = document.getElementById("next-evo");
+  const overlay = document.getElementById("overlay");
+  const overlayIcon = document.getElementById("overlay-icon");
+  const overlayTitle = document.getElementById("overlay-title");
+  const overlaySub = document.getElementById("overlay-sub");
+  const overlayScoreEl = document.getElementById("overlay-score");
+  const overlayNewBest = document.getElementById("overlay-new-best");
+  const overlayBtn = document.getElementById("overlay-btn");
+  const newGameBtn = document.getElementById("new-game");
+  const dexBtn = document.getElementById("dex-btn");
+  const dexPanel = document.getElementById("dex-panel");
+  const toastEl = document.getElementById("toast");
+  const tipEl = document.getElementById("fact-tooltip");
+  const muteBtn = document.getElementById("mute-btn");
+
+  // ── Sound Engine (Web Audio API — no files needed) ──
+  const SFX = (() => {
+    let ctx = null, muted = false;
+    function ac() {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+    function tone(freq, type, vol, dur, t0 = 0) {
+      if (muted) return;
+      const c = ac(), now = c.currentTime + t0;
+      const osc = c.createOscillator(), g = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(vol, now + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(g); g.connect(c.destination);
+      osc.start(now); osc.stop(now + dur + 0.05);
+    }
+    function ramp(f0, f1, type, vol, dur, t0 = 0) {
+      if (muted) return;
+      const c = ac(), now = c.currentTime + t0;
+      const osc = c.createOscillator(), g = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f0, now);
+      osc.frequency.exponentialRampToValueAtTime(f1, now + dur);
+      g.gain.setValueAtTime(vol, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(g); g.connect(c.destination);
+      osc.start(now); osc.stop(now + dur + 0.05);
+    }
+    function noise(vol, dur, hp = 0, t0 = 0) {
+      if (muted) return;
+      const c = ac(), now = c.currentTime + t0;
+      const len = Math.ceil(c.sampleRate * dur);
+      const buf = c.createBuffer(1, len, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf;
+      g.gain.setValueAtTime(vol, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      if (hp) { const f = c.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp; src.connect(f); f.connect(g); }
+      else src.connect(g);
+      g.connect(c.destination);
+      src.start(now); src.stop(now + dur + 0.05);
+    }
+    return {
+      toggle()   { muted = !muted; return muted; },
+      slide()    { noise(0.12, 0.08, 2200); },
+      merge()    { ramp(150, 60, "sine", 0.35, 0.18); noise(0.18, 0.06, 600); },
+      evolve()   { [440, 554, 659, 880].forEach((f, i) => tone(f, "sine", 0.22, 0.28, i * 0.085)); },
+      win()      { [523, 659, 784, 1047].forEach((f, i) => tone(f, "sine", 0.25, 0.35, i * 0.1)); [523, 659, 784].forEach(f => tone(f, "sine", 0.18, 0.7, 0.42)); },
+      newBest()  { [659, 784, 1047].forEach((f, i) => tone(f, "sine", 0.2, 0.22, i * 0.09)); },
+      gameOver() { [440, 370, 311, 220].forEach((f, i) => tone(f, "sawtooth", 0.12, 0.28, i * 0.13)); tone(55, "sine", 0.28, 0.7, 0.36); },
+      locked()   { ramp(110, 70, "sine", 0.28, 0.1); noise(0.08, 0.05, 300); },
+      dexOpen()  { noise(0.1, 0.14, 1200); tone(880, "sine", 0.08, 0.12, 0.02); },
+      dexClose() { noise(0.08, 0.1, 900); tone(660, "sine", 0.06, 0.1, 0.02); },
+      tap()      { tone(900, "sine", 0.12, 0.045); },
+    };
+  })();
+
+  // Build grid background cells
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const c = document.createElement("div");
+    c.className = "cell";
+    gridBg.appendChild(c);
+  }
+
+  // State
+  let grid = [];          // 2D: grid[r][c] = { id, tier } | null
+  let tileMap = new Map();// id -> DOM element
+  let score = 0;
+  let best = 0;
+  let nextId = 1;
+  let busy = false;
+  let maxTierSeen = 0;
+  let won = false;
+  let wonTitan = false;
+  let newBestAchieved = false;
+
+  // Dex — persists across games
+  let seenTiers = new Set();
+  try {
+    const raw = localStorage.getItem(DEX_STORAGE);
+    if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) seenTiers = new Set(arr); }
+  } catch {}
+  function saveDex() {
+    try { localStorage.setItem(DEX_STORAGE, JSON.stringify([...seenTiers])); } catch {}
+  }
+
+  // Toast
+  let toastTimer = null;
+  function showToast(tier) {
+    const d = DINOS[tier];
+    toastEl.innerHTML = `${SVG_SPARKLE}<span>First ${d.name}!</span>`;
+    toastEl.style.background = d.bg;
+    toastEl.style.color = d.fg;
+    toastEl.classList.add("show");
+    SFX.evolve();
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+  }
+
+  // Dino Dex panel
+  function buildDex() {
+    const seen = seenTiers.size;
+    dexPanel.innerHTML = `
+      <div class="dex-header">
+        <div class="dex-title">${SVG_DEX_EGG} Dino Dex <span class="dex-count">${seen} / ${DINOS.length}</span></div>
+        <button class="btn" id="dex-close">✕ Close</button>
+      </div>
+      <div class="dex-grid">
+        ${DINOS.map((d, i) => {
+          const isSeen = seenTiers.has(i);
+          return `<div class="dex-card${isSeen ? "" : " unseen"}" data-tier="${i}"
+                       style="${isSeen ? `background:${d.bg}` : ""}">
+            <div class="dex-ico">${d.svg}</div>
+            <div class="dex-name" style="${isSeen ? `color:${d.fg}` : ""}">${d.name}</div>
+          </div>`;
+        }).join("")}
+      </div>`;
+    document.getElementById("dex-close").addEventListener("click", hideDex);
+    // Tap a seen card to toggle its fact tooltip
+    dexPanel.querySelectorAll(".dex-card:not(.unseen)").forEach(card => {
+      card.addEventListener("click", () => {
+        const tier = parseInt(card.dataset.tier);
+        if (ttTier === tier) { hideTip(); return; }
+        showTip(tier, card);
+      });
+    });
+  }
+  function showDex() { SFX.dexOpen(); buildDex(); dexPanel.classList.remove("hidden"); }
+  function hideDex() { SFX.dexClose(); dexPanel.classList.add("hidden"); hideTip(); }
+
+  // ── Fact tooltip ──
+  let ttTier = -1;
+  let ttFactIdx = 0;
+
+  function showTip(tier, anchorEl) {
+    const d = DINOS[tier];
+    const facts = d.facts;
+    // Cycle to next fact if same tile tapped again; reset on new tile
+    if (tier !== ttTier) ttFactIdx = Math.floor(Math.random() * facts.length);
+    else ttFactIdx = (ttFactIdx + 1) % facts.length;
+    tipEl.querySelector(".tt-name").textContent = d.name;
+    tipEl.querySelector(".tt-fact").textContent = facts[ttFactIdx];
+    tipEl.querySelector(".tt-hint").textContent = `${ttFactIdx + 1} of ${facts.length} facts`;
+    tipEl.classList.remove("hidden");
+    ttTier = tier;
+    // Position: centred above or below the anchor
+    const r = anchorEl.getBoundingClientRect();
+    const maxW = Math.min(260, window.innerWidth - 16);
+    tipEl.style.width = maxW + "px";
+    let left = r.left + r.width / 2 - maxW / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - maxW - 8));
+    tipEl.style.left = left + "px";
+    if (r.top + r.height / 2 < window.innerHeight / 2) {
+      tipEl.style.top    = (r.bottom + 8) + "px";
+      tipEl.style.bottom = "auto";
+    } else {
+      tipEl.style.top    = "auto";
+      tipEl.style.bottom = (window.innerHeight - r.top + 8) + "px";
+    }
+  }
+
+  function hideTip() { tipEl.classList.add("hidden"); ttTier = -1; }
+
+  function newTile(tier) {
+    return { id: nextId++, tier, merged: false, fresh: true };
+  }
+
+  function emptyGrid() {
+    return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      if (!s || !Array.isArray(s.grid)) return false;
+      grid = s.grid.map(row => row.map(t => t ? { ...t, fresh: false, merged: false } : null));
+      score = s.score || 0;
+      best = s.best || 0;
+      nextId = s.nextId || 1;
+      won = !!s.won;
+      wonTitan = !!s.wonTitan;
+      return true;
+    } catch { return false; }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE, JSON.stringify({ grid, score, best, nextId, won, wonTitan }));
+    } catch {}
+  }
+
+  function reset() {
+    grid = emptyGrid();
+    score = 0;
+    won = false;
+    wonTitan = false;
+    newBestAchieved = false;
+    tileMap.forEach(el => el.remove());
+    tileMap.clear();
+    spawn(); spawn();
+    render(true);
+    hideOverlay();
+    save();
+  }
+
+  function randomEmpty() {
+    const empties = [];
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (!grid[r][c]) empties.push([r, c]);
+    if (!empties.length) return null;
+    return empties[Math.floor(Math.random() * empties.length)];
+  }
+
+  function spawn() {
+    const spot = randomEmpty();
+    if (!spot) return false;
+    const tier = Math.random() < 0.9 ? 0 : 1;
+    grid[spot[0]][spot[1]] = newTile(tier);
+    return true;
+  }
+
+  function tierShadow(tier) {
+    const offset = 2 + Math.floor(tier * 1.5);
+    const blur   = 4 + tier * 2;
+    const alpha  = Math.min(0.20 + tier * 0.025, 0.55).toFixed(2);
+    return `0 ${offset}px ${blur}px rgba(0,0,0,${alpha}), inset 0 -3px 0 rgba(0,0,0,0.12)`;
+  }
+
+  function makeTileEl(t) {
+    const el = document.createElement("div");
+    el.className = "tile";
+    const tier = Math.min(t.tier, DINOS.length - 1);
+    const d = DINOS[tier];
+    el.dataset.tier = tier;
+    el.style.background = d.bg;
+    el.style.color = d.fg;
+    el.style.boxShadow = tierShadow(tier);
+    el.innerHTML = `<div class="ico">${d.svg}</div><div class="name">${d.name}</div>`;
+    tilesEl.appendChild(el);
+    return el;
+  }
+
+  function sizeTile(el, r, c) {
+    const rect = tilesEl.getBoundingClientRect();
+    const cellW = (rect.width - GAP * (SIZE - 1)) / SIZE;
+    const cellH = (rect.height - GAP * (SIZE - 1)) / SIZE;
+    el.style.width = cellW + "px";
+    el.style.height = cellH + "px";
+    el.style.fontSize = Math.floor(cellW) + "px"; // children use % of this
+    const x = c * (cellW + GAP);
+    const y = r * (cellH + GAP);
+    el.style.setProperty("--tx", x + "px");
+    el.style.setProperty("--ty", y + "px");
+    el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  }
+
+  function render(instant = false) {
+    let hasMerge = false;
+    const seen = new Set();
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const t = grid[r][c];
+        if (!t) continue;
+        seen.add(t.id);
+        let el = tileMap.get(t.id);
+        if (!el) {
+          el = makeTileEl(t);
+          tileMap.set(t.id, el);
+          sizeTile(el, r, c);
+          if (t.fresh && !instant) el.classList.add("pop");
+        } else {
+          // refresh visuals if tier changed
+          const tier = Math.min(t.tier, DINOS.length - 1);
+          const d = DINOS[tier];
+          el.dataset.tier = tier;
+          el.style.background = d.bg;
+          el.style.color = d.fg;
+          el.style.boxShadow = tierShadow(tier);
+          el.firstChild.innerHTML = d.svg;
+          el.lastChild.textContent = d.name;
+          sizeTile(el, r, c);
+          if (t.merged && !instant) {
+            el.classList.remove("merge");
+            void el.offsetWidth;
+            el.classList.add("merge");
+            hasMerge = true;
+          }
+        }
+        t.fresh = false;
+        t.merged = false;
+        if (t.tier > maxTierSeen) maxTierSeen = t.tier;
+        if (!seenTiers.has(t.tier)) {
+          seenTiers.add(t.tier);
+          saveDex();
+          if (!instant && t.tier >= 1) showToast(t.tier);
+        }
+      }
+    }
+    // remove gone tiles
+    tileMap.forEach((el, id) => {
+      if (!seen.has(id)) { el.remove(); tileMap.delete(id); }
+    });
+
+    if (hasMerge) SFX.merge();
+    scoreEl.textContent = score;
+    if (score > best) {
+      best = score;
+      newBestAchieved = true;
+      SFX.newBest();
+      if (!instant) {
+        const bestCard = bestEl.parentElement;
+        bestCard.classList.remove("pulse-best");
+        void bestCard.offsetWidth;
+        bestCard.classList.add("pulse-best");
+      }
+    }
+    bestEl.textContent = best;
+    const nextTier = maxTierSeen + 1;
+    if (nextTier >= DINOS.length) {
+      nextEvoEl.innerHTML = `<span class="next-label">Prehistoric master!</span>`;
+    } else {
+      const nd = DINOS[nextTier];
+      nextEvoEl.innerHTML = `<span class="next-label">Next:</span><span class="next-thumb" style="background:${nd.bg};color:${nd.fg}">${nd.svg}<span class="next-name">${nd.name}</span></span>`;
+    }
+  }
+
+  // Move logic: direction vector → traverse order so we process far side first
+  function move(dir) {
+    if (busy) return false;
+    // dir: 'up','down','left','right'
+    const dr = dir === "up" ? -1 : dir === "down" ? 1 : 0;
+    const dc = dir === "left" ? -1 : dir === "right" ? 1 : 0;
+
+    const rowsOrder = dr === 1 ? [3,2,1,0] : [0,1,2,3];
+    const colsOrder = dc === 1 ? [3,2,1,0] : [0,1,2,3];
+
+    let moved = false;
+    // clear merged flags
+    for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) if (grid[r][c]) grid[r][c].merged = false;
+
+    for (const r of rowsOrder) {
+      for (const c of colsOrder) {
+        const t = grid[r][c];
+        if (!t) continue;
+        let nr = r, nc = c;
+        while (true) {
+          const tr = nr + dr, tc = nc + dc;
+          if (tr < 0 || tr >= SIZE || tc < 0 || tc >= SIZE) break;
+          const tgt = grid[tr][tc];
+          if (!tgt) { nr = tr; nc = tc; continue; }
+          if (tgt.tier === t.tier && !tgt.merged && !t.merged) {
+            grid[tr][tc] = { id: tgt.id, tier: tgt.tier + 1, merged: true, fresh: false };
+            // drop the moving tile's DOM by remapping id: keep target id, drop moving tile
+            const movingEl = tileMap.get(t.id);
+            if (movingEl) {
+              // animate moving tile into target position, then remove
+              const rect = tilesEl.getBoundingClientRect();
+              const cellW = (rect.width - GAP * (SIZE - 1)) / SIZE;
+              const cellH = (rect.height - GAP * (SIZE - 1)) / SIZE;
+              const x = tc * (cellW + GAP);
+              const y = tr * (cellH + GAP);
+              movingEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+              setTimeout(() => { movingEl.remove(); tileMap.delete(t.id); }, 130);
+            }
+            grid[r][c] = null;
+            // mark original source as moved
+            nr = tr; nc = tc;
+            score += Math.pow(2, grid[tr][tc].tier + 1);
+            moved = true;
+            if (grid[tr][tc].tier >= 11 && !wonTitan) {
+              wonTitan = true;
+              SFX.win();
+              setTimeout(() => showOverlay("TITAN!", "You evolved the mightiest creature to ever walk the Earth!", "Keep going", "👑"), 250);
+            } else if (grid[tr][tc].tier >= 10 && !won) {
+              won = true;
+              SFX.win();
+              setTimeout(() => showOverlay("Brachiosaurus!", "You reached the top — keep going for Titan!", "Keep going", "🏆"), 250);
+            }
+            break;
+          } else {
+            break;
+          }
+        }
+        if (nr !== r || nc !== c) {
+          if (grid[nr][nc] && grid[nr][nc].id === t.id) {
+            // already placed (shouldn't happen)
+          } else if (!grid[nr][nc]) {
+            grid[nr][nc] = t;
+            grid[r][c] = null;
+            moved = true;
+          }
+        }
+      }
+    }
+    return moved;
+  }
+
+  function anyMoves() {
+    for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) {
+      if (!grid[r][c]) return true;
+      const t = grid[r][c];
+      for (const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nr = r+dr, nc = c+dc;
+        if (nr<0||nr>=SIZE||nc<0||nc>=SIZE) continue;
+        const tgt = grid[nr][nc];
+        if (!tgt || tgt.tier === t.tier) return true;
+      }
+    }
+    return false;
+  }
+
+  function tryMove(dir) {
+    if (busy) return;
+    if (!overlay.classList.contains("hidden")) return;
+    const moved = move(dir);
+    if (moved) {
+      SFX.slide();
+      busy = true;
+      // reposition non-merged tiles
+      for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) {
+        const t = grid[r][c];
+        if (!t) continue;
+        const el = tileMap.get(t.id);
+        if (el) sizeTile(el, r, c);
+      }
+      setTimeout(() => {
+        spawn();
+        render();
+        save();
+        if (!anyMoves()) {
+          SFX.gameOver();
+          showOverlay("Extinction!", "No moves left — your dinos have died out.", "Play again", "☠️", newBestAchieved);
+        }
+        busy = false;
+      }, 130);
+    } else {
+      SFX.locked();
+    }
+  }
+
+  function showOverlay(title, sub, btn, icon = "", showNewBest = false) {
+    overlayIcon.textContent = icon;
+    overlayTitle.textContent = title;
+    overlaySub.textContent = sub;
+    overlayScoreEl.textContent = score > 0 ? score.toLocaleString() : "";
+    overlayNewBest.classList.toggle("hidden", !showNewBest);
+    overlayBtn.textContent = btn;
+    overlay.classList.remove("hidden");
+  }
+  function hideOverlay() { overlay.classList.add("hidden"); }
+
+  // --- Input: swipe + keyboard ---
+  let touchStart = null;
+  const SWIPE_MIN = 24;
+  boardEl.addEventListener("touchstart", e => {
+    const t = e.changedTouches[0];
+    touchStart = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  boardEl.addEventListener("touchend", e => {
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN) return;
+    if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? "right" : "left");
+    else tryMove(dy > 0 ? "down" : "up");
+  }, { passive: true });
+
+  // Pointer fallback (desktop drag)
+  let pStart = null;
+  boardEl.addEventListener("pointerdown", e => {
+    if (e.pointerType === "touch") return;
+    pStart = { x: e.clientX, y: e.clientY };
+  });
+  boardEl.addEventListener("pointerup", e => {
+    if (!pStart) return;
+    const dx = e.clientX - pStart.x, dy = e.clientY - pStart.y;
+    pStart = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN) return;
+    if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? "right" : "left");
+    else tryMove(dy > 0 ? "down" : "up");
+  });
+
+  window.addEventListener("keydown", e => {
+    const k = e.key;
+    if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","w","a","s","d","W","A","S","D"].includes(k)) {
+      e.preventDefault();
+      if (k === "ArrowUp" || k === "w" || k === "W") tryMove("up");
+      else if (k === "ArrowDown" || k === "s" || k === "S") tryMove("down");
+      else if (k === "ArrowLeft" || k === "a" || k === "A") tryMove("left");
+      else tryMove("right");
+    }
+  });
+
+  newGameBtn.addEventListener("click", () => { SFX.tap(); reset(); });
+  dexBtn.addEventListener("click", () => { SFX.tap(); showDex(); });
+  muteBtn.addEventListener("click", () => {
+    const isMuted = SFX.toggle();
+    muteBtn.innerHTML = isMuted ? SVG_MUTED : SVG_SPEAKER;
+    if (!isMuted) SFX.tap();
+  });
+
+  // ── Tooltip triggers ──
+  // Click/tap on a game tile to show its fact (cycles through facts on repeat taps)
+  tilesEl.addEventListener("click", e => {
+    const tile = e.target.closest(".tile");
+    if (tile) showTip(parseInt(tile.dataset.tier), tile);
+  });
+
+  // Dismiss on tap/click outside any interactive area
+  document.addEventListener("touchstart", e => {
+    if (!e.target.closest("#tiles") && !e.target.closest("#fact-tooltip") && !e.target.closest(".dex-card"))
+      hideTip();
+  }, { passive: true });
+  document.addEventListener("mousedown", e => {
+    if (!e.target.closest("#tiles") && !e.target.closest("#fact-tooltip") && !e.target.closest(".dex-card"))
+      hideTip();
+  });
+  overlayBtn.addEventListener("click", () => {
+    if (overlayBtn.textContent === "Keep going") {
+      hideOverlay();
+    } else {
+      reset();
+    }
+  });
+
+  // Reposition tiles on resize
+  const ro = new ResizeObserver(() => {
+    for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) {
+      const t = grid[r][c];
+      if (!t) continue;
+      const el = tileMap.get(t.id);
+      if (el) sizeTile(el, r, c);
+    }
+  });
+  ro.observe(boardEl);
+
+  // ── How to play ──
+  const htpPanel = document.getElementById("htp-panel");
+  function showHtp() { htpPanel.classList.remove("hidden"); }
+  function hideHtp() {
+    htpPanel.classList.add("hidden");
+    try { localStorage.setItem(HTP_STORAGE, "1"); } catch {}
+  }
+  document.getElementById("htp-close").addEventListener("click", () => { SFX.tap(); hideHtp(); });
+
+  // Init
+  if (!load()) reset();
+  else {
+    // recreate DOM for loaded state
+    for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) {
+      const t = grid[r][c];
+      if (!t) continue;
+      const el = makeTileEl(t);
+      tileMap.set(t.id, el);
+      sizeTile(el, r, c);
+      if (t.tier > maxTierSeen) maxTierSeen = t.tier;
+    }
+    render(true);
+  }
+
+  // Show tutorial on first launch
+  try { if (!localStorage.getItem(HTP_STORAGE)) setTimeout(showHtp, 500); } catch {}
+})();
+
+// Service worker registration — enables installability and offline play.
+// Only runs on HTTPS (or localhost). Failures are silent on purpose.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
