@@ -1,6 +1,6 @@
 // Triassic Tiles — service worker
 // Bump CACHE_VERSION whenever you ship a new build so users get the update.
-const CACHE_VERSION = "triassic-tiles-v1";
+const CACHE_VERSION = "triassic-tiles-v2";
 
 const ASSETS = [
   "./",
