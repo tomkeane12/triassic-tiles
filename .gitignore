@@ -6,3 +6,13 @@
 
 # macOS metadata
 .DS_Store
+
+# Bubblewrap / Android build project (regenerable via `bubblewrap init`).
+# Contains android.keystore and .aab/.apk build artifacts that MUST NOT
+# be committed. The keystore itself is backed up to iCloud separately.
+twa/
+
+# Marketing screenshots build tooling (Puppeteer + Chromium).
+# Only node_modules is excluded; PNGs and capture scripts can be
+# committed later if we want to preserve them.
+screenshots/node_modules/
